@@ -8,10 +8,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/dchest/captcha"
 	"io"
 	"log"
 	"os"
+
+	"github.com/chappjc/captcha"
 )
 
 var (

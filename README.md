@@ -1,7 +1,7 @@
 Package captcha
 =====================
 
-	import "github.com/dchest/captcha"
+	import "github.com/chappjc/captcha"
 
 Package captcha implements generation and verification of image and audio
 CAPTCHAs.
@@ -49,9 +49,9 @@ take a look at the example in "capexample" subdirectory.
 Examples
 --------
 
-![Image](https://github.com/dchest/captcha/raw/master/capgen/example.png)
+![Image](https://github.com/chappjc/captcha/raw/master/capgen/example.png)
 
-[Audio](https://github.com/dchest/captcha/raw/master/capgen/example.wav)
+[Audio](https://github.com/chappjc/captcha/raw/master/capgen/example.wav)
 
 
 Constants
