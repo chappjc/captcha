@@ -103,6 +103,10 @@ func Reload(id string) bool {
 	return true
 }
 
+func Digits(id string) []byte {
+	return globalStore.Get(id, false)
+}
+
 // WriteImage writes PNG-encoded image representation of the captcha with the
 // given id. The image will have the given width and height.
 func WriteImage(w io.Writer, id string, width, height int, opts *DistortionOpts) error {

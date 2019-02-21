@@ -10,6 +10,8 @@ import (
 )
 
 func Test_captchaHandler_ServeHTTP(t *testing.T) {
+	id := NewLen(6)
+
 	type fields struct {
 		imgWidth  int
 		imgHeight int
@@ -28,7 +30,7 @@ func Test_captchaHandler_ServeHTTP(t *testing.T) {
 		args   args
 		exp    expected
 	}{
-		{"ok", fields{128, 256, nil},
+		{"no", fields{128, 256, nil},
 			args{
 				w: httptest.NewRecorder(),
 				r: httptest.NewRequest("GET", "http://example.com/foo", nil),
@@ -37,7 +39,7 @@ func Test_captchaHandler_ServeHTTP(t *testing.T) {
 				code: http.StatusNotFound,
 			},
 		},
-		{"ok", fields{128, 256, nil},
+		{"no", fields{128, 256, nil},
 			args{
 				w: httptest.NewRecorder(),
 				r: httptest.NewRequest("GET", "http://example.com/foo.png", nil),
@@ -46,13 +48,22 @@ func Test_captchaHandler_ServeHTTP(t *testing.T) {
 				code: http.StatusNotFound,
 			},
 		},
-		{"ok", fields{128, 256, nil},
+		{"no", fields{128, 256, nil},
 			args{
 				w: httptest.NewRecorder(),
 				r: httptest.NewRequest("GET", "http://example.com/foo/download.", nil),
 			},
 			expected{
 				code: http.StatusNotFound,
+			},
+		},
+		{"yes", fields{128, 256, nil},
+			args{
+				w: httptest.NewRecorder(),
+				r: httptest.NewRequest("GET", "http://example.com/foo/"+id+".png", nil),
+			},
+			expected{
+				code: http.StatusOK,
 			},
 		},
 	}
