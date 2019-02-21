@@ -7,11 +7,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/chappjc/captcha"
 	"io"
 	"log"
 	"net/http"
 	"text/template"
+
+	"github.com/chappjc/captcha"
 )
 
 var formTemplate = template.Must(template.New("example").Parse(formTemplateSrc))

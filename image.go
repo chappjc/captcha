@@ -17,11 +17,24 @@ const (
 	// Standard width and height of a captcha image.
 	StdWidth  = 240
 	StdHeight = 80
+
 	// Maximum absolute skew factor of a single digit.
-	maxSkew = 0.7
+	defaultMaxSkew = 0.7
 	// Number of background circles.
-	circleCount = 20
+	defaultCircleCount = 20
 )
+
+type WarpBounds struct {
+	AmpMin, AmpMax       float64
+	PeriodMin, PeriodMax float64
+}
+
+type DistortionOpts struct {
+	CircleCount int
+	MaxSkew     float64
+	CanvasWarp  WarpBounds
+	StrikeWarp  WarpBounds
+}
 
 type Image struct {
 	*image.Paletted
@@ -31,42 +44,69 @@ type Image struct {
 	rng       siprng
 }
 
+var defaultDistortionOpts = DistortionOpts{
+	CircleCount: defaultCircleCount,
+	MaxSkew:     defaultMaxSkew,
+	CanvasWarp: WarpBounds{
+		AmpMin: 5, AmpMax: 10,
+		PeriodMin: 100, PeriodMax: 200,
+	},
+	StrikeWarp: WarpBounds{
+		AmpMin: 5, AmpMax: 20,
+		PeriodMin: 80, PeriodMax: 180,
+	},
+}
+
 // NewImage returns a new captcha image of the given width and height with the
 // given digits, where each digit must be in range 0-9.
-func NewImage(id string, digits []byte, width, height int) *Image {
+func NewImage(id string, digits []byte, width, height int, opts *DistortionOpts) *Image {
+	if opts == nil {
+		opts = &defaultDistortionOpts
+	}
+
 	m := new(Image)
 
 	// Initialize PRNG.
 	m.rng.Seed(deriveSeed(imageSeedPurpose, id, digits))
 
-	m.Paletted = image.NewPaletted(image.Rect(0, 0, width, height), m.getRandomPalette())
+	m.Paletted = image.NewPaletted(image.Rect(0, 0, width, height),
+		m.getRandomPalette(opts.CircleCount))
 	m.calculateSizes(width, height, len(digits))
+
 	// Randomly position captcha inside the image.
 	maxx := width - (m.numWidth+m.dotSize)*len(digits) - m.dotSize
 	maxy := height - m.numHeight - m.dotSize*2
 	var border int
 	if width > height {
-		border = height / 5
+		border = height / 6
 	} else {
-		border = width / 5
+		border = width / 6
 	}
 	x := m.rng.Int(border, maxx-border)
 	y := m.rng.Int(border, maxy-border)
+
 	// Draw digits.
 	for _, n := range digits {
-		m.drawDigit(font[n], x, y)
+		m.drawDigit(font[n], x, y, opts.MaxSkew)
 		x += m.numWidth + m.dotSize
 	}
+
 	// Draw strike-through line.
-	m.strikeThrough()
+	m.strikeThrough(opts.StrikeWarp.AmpMin, opts.StrikeWarp.AmpMax,
+		opts.StrikeWarp.PeriodMin, opts.StrikeWarp.PeriodMax)
+
 	// Apply wave distortion.
-	m.distort(m.rng.Float(5, 10), m.rng.Float(100, 200))
+	amp := m.rng.Float(opts.CanvasWarp.AmpMin, opts.CanvasWarp.AmpMax)
+	per := m.rng.Float(opts.CanvasWarp.PeriodMin, opts.CanvasWarp.PeriodMax)
+	m.distort(amp, per)
+
 	// Fill image with random circles.
-	m.fillWithCircles(circleCount, m.dotSize)
+	m.fillWithCircles(opts.CircleCount, m.dotSize)
+
 	return m
 }
 
-func (m *Image) getRandomPalette() color.Palette {
+func (m *Image) getRandomPalette(circleCount int) color.Palette {
 	p := make([]color.Color, circleCount+1)
 	// Transparent color.
 	p[0] = color.RGBA{0xFF, 0xFF, 0xFF, 0x00}
@@ -85,8 +125,7 @@ func (m *Image) getRandomPalette() color.Palette {
 	return p
 }
 
-// encodedPNG encodes an image to PNG and returns
-// the result as a byte slice.
+// encodedPNG encodes an image to PNG and returns the result as a byte slice.
 func (m *Image) encodedPNG() []byte {
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, m.Paletted); err != nil {
@@ -105,9 +144,9 @@ func (m *Image) calculateSizes(width, height, ncount int) {
 	// Goal: fit all digits inside the image.
 	var border int
 	if width > height {
-		border = height / 4
+		border = height / 5
 	} else {
-		border = width / 4
+		border = width / 5
 	}
 	// Convert everything to floats for calculations.
 	w := float64(width - border*2)
@@ -175,18 +214,18 @@ func (m *Image) fillWithCircles(n, maxradius int) {
 	maxx := m.Bounds().Max.X
 	maxy := m.Bounds().Max.Y
 	for i := 0; i < n; i++ {
-		colorIdx := uint8(m.rng.Int(1, circleCount-1))
+		colorIdx := uint8(m.rng.Int(1, n-1))
 		r := m.rng.Int(1, maxradius)
 		m.drawCircle(m.rng.Int(r, maxx-r), m.rng.Int(r, maxy-r), r, colorIdx)
 	}
 }
 
-func (m *Image) strikeThrough() {
+func (m *Image) strikeThrough(ampMin, ampMax, perMin, perMax float64) {
 	maxx := m.Bounds().Max.X
 	maxy := m.Bounds().Max.Y
 	y := m.rng.Int(maxy/3, maxy-maxy/3)
-	amplitude := m.rng.Float(5, 20)
-	period := m.rng.Float(80, 180)
+	amplitude := m.rng.Float(ampMin, ampMax)
+	period := m.rng.Float(perMin, perMax)
 	dx := 2.0 * math.Pi / period
 	for x := 0; x < maxx; x++ {
 		xo := amplitude * math.Cos(float64(y)*dx)
@@ -198,8 +237,8 @@ func (m *Image) strikeThrough() {
 	}
 }
 
-func (m *Image) drawDigit(digit []byte, x, y int) {
-	skf := m.rng.Float(-maxSkew, maxSkew)
+func (m *Image) drawDigit(digit []byte, x, y int, MaxSkew float64) {
+	skf := m.rng.Float(-MaxSkew, MaxSkew)
 	xs := float64(x)
 	r := m.dotSize / 2
 	y += m.rng.Int(-r, r)
@@ -244,7 +283,7 @@ func (m *Image) randomBrightness(c color.RGBA, max uint8) color.RGBA {
 		uint8(int(c.R) + n),
 		uint8(int(c.G) + n),
 		uint8(int(c.B) + n),
-		uint8(c.A),
+		c.A,
 	}
 }
 

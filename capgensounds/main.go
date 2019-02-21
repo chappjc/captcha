@@ -9,10 +9,10 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"io"
 	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 )
 
@@ -26,19 +26,19 @@ func writeVar(w io.Writer, b []byte, prefix string) {
 		fmt.Fprintf(w, "0x%02x,", v)
 		i++
 		if i == 11 {
-			fmt.Fprintf(w, "\n")
+			fmt.Fprintln(w)
 			if j != len(b)-1 {
-				fmt.Fprintf(w, prefix)
+				fmt.Fprint(w, prefix)
 			}
 			i = 0
 		} else {
 			if j != len(b)-1 {
-				fmt.Fprintf(w, " ")
+				fmt.Fprint(w, " ")
 			}
 		}
 	}
 	if i > 0 {
-		fmt.Fprintf(w, "\n")
+		fmt.Fprintln(w)
 	}
 }
 

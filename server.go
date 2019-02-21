@@ -6,6 +6,7 @@ package captcha
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"path"
 	"strings"
@@ -15,6 +16,7 @@ import (
 type captchaHandler struct {
 	imgWidth  int
 	imgHeight int
+	opts      *DistortionOpts
 }
 
 // Server returns a handler that serves HTTP requests with image or
@@ -39,8 +41,8 @@ type captchaHandler struct {
 // By default, the Server serves audio in English language. To serve audio
 // captcha in one of the other supported languages, append "lang" value, for
 // example, "?lang=ru".
-func Server(imgWidth, imgHeight int) http.Handler {
-	return &captchaHandler{imgWidth, imgHeight}
+func Server(imgWidth, imgHeight int, opts *DistortionOpts) http.Handler {
+	return &captchaHandler{imgWidth, imgHeight, opts}
 }
 
 func (h *captchaHandler) serve(w http.ResponseWriter, r *http.Request, id, ext, lang string, download bool) error {
@@ -52,7 +54,7 @@ func (h *captchaHandler) serve(w http.ResponseWriter, r *http.Request, id, ext, 
 	switch ext {
 	case ".png":
 		w.Header().Set("Content-Type", "image/png")
-		WriteImage(&content, id, h.imgWidth, h.imgHeight)
+		WriteImage(&content, id, h.imgWidth, h.imgHeight, h.opts)
 	case ".wav":
 		w.Header().Set("Content-Type", "audio/x-wav")
 		WriteAudio(&content, id, lang)
@@ -70,7 +72,13 @@ func (h *captchaHandler) serve(w http.ResponseWriter, r *http.Request, id, ext, 
 func (h *captchaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	dir, file := path.Split(r.URL.Path)
 	ext := path.Ext(file)
+	// do not trust Ext
+	if len(file) < len(ext) {
+		http.NotFound(w, r)
+		return
+	}
 	id := file[:len(file)-len(ext)]
+	fmt.Printf(`"%v" "%v"`, id, ext)
 	if ext == "" || id == "" {
 		http.NotFound(w, r)
 		return

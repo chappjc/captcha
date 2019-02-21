@@ -105,12 +105,12 @@ func Reload(id string) bool {
 
 // WriteImage writes PNG-encoded image representation of the captcha with the
 // given id. The image will have the given width and height.
-func WriteImage(w io.Writer, id string, width, height int) error {
+func WriteImage(w io.Writer, id string, width, height int, opts *DistortionOpts) error {
 	d := globalStore.Get(id, false)
 	if d == nil {
 		return ErrNotFound
 	}
-	_, err := NewImage(id, d, width, height).WriteTo(w)
+	_, err := NewImage(id, d, width, height, opts).WriteTo(w)
 	return err
 }
 
@@ -132,7 +132,7 @@ func WriteAudio(w io.Writer, id string, lang string) error {
 // The function deletes the captcha with the given id from the internal
 // storage, so that the same captcha can't be verified anymore.
 func Verify(id string, digits []byte) bool {
-	if digits == nil || len(digits) == 0 {
+	if len(digits) == 0 {
 		return false
 	}
 	reald := globalStore.Get(id, true)
