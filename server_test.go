@@ -1,3 +1,7 @@
+// Copyright 2019 Jonathan Chappelow. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
 package captcha
 
 import (
@@ -89,6 +93,20 @@ func Test_captchaHandler_ServeHTTP(t *testing.T) {
 			expected{
 				code:        http.StatusOK,
 				contentType: "application/octet-stream",
+			},
+		},
+		{"yes opts", fields{280, 120,
+			&DistortionOpts{
+				CircleCount: 40, MaxSkew: 0.8, StrikeCount: 2,
+				CanvasWarp: defaultCanvasWarp, StrikeWarp: defaultStrikeWarp,
+			}},
+			args{
+				w: httptest.NewRecorder(),
+				r: httptest.NewRequest("GET", "http://example.com/foo/"+id+".png", nil),
+			},
+			expected{
+				code:        http.StatusOK,
+				contentType: "image/png",
 			},
 		},
 	}
