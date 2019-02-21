@@ -36,26 +36,19 @@ func (h *captchaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	dir, file := path.Split(r.URL.Path)
 	ext := path.Ext(file)
 	id := strings.TrimSuffix(file, ext)
-	if ext == "" || id == "" {
+	if ext != ".png" || id == "" {
 		http.NotFound(w, r)
 		return
 	}
 
-	if r.FormValue("reload") != "" {
-		if !Reload(id) {
-			http.NotFound(w, r)
-			return
-		}
+	if r.FormValue("reload") != "" && !Reload(id) {
+		http.NotFound(w, r)
+		return
 	}
 
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Expires", "0")
-
-	if ext != ".png" {
-		http.NotFound(w, r)
-		return
-	}
 
 	digits := Digits(id)
 	if len(digits) == 0 {

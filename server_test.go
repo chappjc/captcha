@@ -13,6 +13,21 @@ import (
 	"testing"
 )
 
+func Benchmark_captchaHandler_ServeHTTP(b *testing.B) {
+	id := NewLen(6)
+	h := &captchaHandler{
+		imgWidth:  280,
+		imgHeight: 120,
+		opts:      nil,
+	}
+
+	r := httptest.NewRequest("GET", "http://example.com/foo/"+id+".png", nil)
+	for i := 0; i < b.N; i++ {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+	}
+}
+
 func Test_captchaHandler_ServeHTTP(t *testing.T) {
 	id := NewLen(6)
 
