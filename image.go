@@ -1,4 +1,5 @@
 // Copyright 2011-2014 Dmitry Chestnykh. All rights reserved.
+// Copyright 2019 Jonathan Chappelow. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -22,6 +23,8 @@ const (
 	defaultMaxSkew = 0.7
 	// Number of background circles.
 	defaultCircleCount = 20
+
+	defaultStrikeCount = 1
 )
 
 type WarpBounds struct {
@@ -31,6 +34,7 @@ type WarpBounds struct {
 
 type DistortionOpts struct {
 	CircleCount int
+	StrikeCount int
 	MaxSkew     float64
 	CanvasWarp  WarpBounds
 	StrikeWarp  WarpBounds
@@ -44,17 +48,22 @@ type Image struct {
 	rng       siprng
 }
 
+var defaultCanvasWarp = WarpBounds{
+	AmpMin: 5, AmpMax: 10,
+	PeriodMin: 100, PeriodMax: 200,
+}
+
+var defaultStrikeWarp = WarpBounds{
+	AmpMin: 5, AmpMax: 20,
+	PeriodMin: 80, PeriodMax: 180,
+}
+
 var defaultDistortionOpts = DistortionOpts{
 	CircleCount: defaultCircleCount,
+	StrikeCount: defaultStrikeCount,
 	MaxSkew:     defaultMaxSkew,
-	CanvasWarp: WarpBounds{
-		AmpMin: 5, AmpMax: 10,
-		PeriodMin: 100, PeriodMax: 200,
-	},
-	StrikeWarp: WarpBounds{
-		AmpMin: 5, AmpMax: 20,
-		PeriodMin: 80, PeriodMax: 180,
-	},
+	CanvasWarp:  defaultCanvasWarp,
+	StrikeWarp:  defaultStrikeWarp,
 }
 
 // NewImage returns a new captcha image of the given width and height with the
@@ -92,8 +101,10 @@ func NewImage(id string, digits []byte, width, height int, opts *DistortionOpts)
 	}
 
 	// Draw strike-through line.
-	m.strikeThrough(opts.StrikeWarp.AmpMin, opts.StrikeWarp.AmpMax,
-		opts.StrikeWarp.PeriodMin, opts.StrikeWarp.PeriodMax)
+	for i := 0; i < opts.StrikeCount; i++ {
+		m.strikeThrough(opts.StrikeWarp.AmpMin, opts.StrikeWarp.AmpMax,
+			opts.StrikeWarp.PeriodMin, opts.StrikeWarp.PeriodMax)
+	}
 
 	// Apply wave distortion.
 	amp := m.rng.Float(opts.CanvasWarp.AmpMin, opts.CanvasWarp.AmpMax)
@@ -230,14 +241,15 @@ func (m *Image) strikeThrough(ampMin, ampMax, perMin, perMax float64) {
 	for x := 0; x < maxx; x++ {
 		xo := amplitude * math.Cos(float64(y)*dx)
 		yo := amplitude * math.Sin(float64(x)*dx)
-		for yn := 0; yn < m.dotSize; yn++ {
+		r0 := m.rng.Int(0, 2*m.dotSize/3)
+		for yn := 0; yn < r0; yn++ {
 			r := m.rng.Int(0, m.dotSize)
 			m.drawCircle(x+int(xo), y+int(yo)+(yn*m.dotSize), r/2, 1)
 		}
 	}
 }
 
-func (m *Image) drawDigit(digit []byte, x, y int, MaxSkew float64) {
+func (m *Image) drawDigit(digit *charMap, x, y int, MaxSkew float64) {
 	skf := m.rng.Float(-MaxSkew, MaxSkew)
 	xs := float64(x)
 	r := m.dotSize / 2
