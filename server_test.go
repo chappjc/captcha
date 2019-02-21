@@ -22,7 +22,8 @@ func Test_captchaHandler_ServeHTTP(t *testing.T) {
 		r *http.Request
 	}
 	type expected struct {
-		code int
+		code        int
+		contentType string
 	}
 	tests := []struct {
 		name   string
@@ -30,40 +31,64 @@ func Test_captchaHandler_ServeHTTP(t *testing.T) {
 		args   args
 		exp    expected
 	}{
-		{"no", fields{128, 256, nil},
+		{"no", fields{280, 120, nil},
 			args{
 				w: httptest.NewRecorder(),
 				r: httptest.NewRequest("GET", "http://example.com/foo", nil),
 			},
 			expected{
-				code: http.StatusNotFound,
+				code:        http.StatusNotFound,
+				contentType: "text/plain; charset=utf-8",
 			},
 		},
-		{"no", fields{128, 256, nil},
+		{"bad ID", fields{280, 120, nil},
 			args{
 				w: httptest.NewRecorder(),
 				r: httptest.NewRequest("GET", "http://example.com/foo.png", nil),
 			},
 			expected{
-				code: http.StatusNotFound,
+				code:        http.StatusNotFound,
+				contentType: "text/plain; charset=utf-8",
 			},
 		},
-		{"no", fields{128, 256, nil},
+		{"no extension", fields{280, 120, nil},
 			args{
 				w: httptest.NewRecorder(),
-				r: httptest.NewRequest("GET", "http://example.com/foo/download.", nil),
+				r: httptest.NewRequest("GET", "http://example.com/foo/x.", nil),
 			},
 			expected{
-				code: http.StatusNotFound,
+				code:        http.StatusNotFound,
+				contentType: "text/plain; charset=utf-8",
 			},
 		},
-		{"yes", fields{128, 256, nil},
+		{"no ID", fields{280, 120, nil},
+			args{
+				w: httptest.NewRecorder(),
+				r: httptest.NewRequest("GET", "http://example.com/foo/.png", nil),
+			},
+			expected{
+				code:        http.StatusNotFound,
+				contentType: "text/plain; charset=utf-8",
+			},
+		},
+		{"yes", fields{280, 120, nil},
 			args{
 				w: httptest.NewRecorder(),
 				r: httptest.NewRequest("GET", "http://example.com/foo/"+id+".png", nil),
 			},
 			expected{
-				code: http.StatusOK,
+				code:        http.StatusOK,
+				contentType: "image/png",
+			},
+		},
+		{"yes download", fields{280, 120, nil},
+			args{
+				w: httptest.NewRecorder(),
+				r: httptest.NewRequest("GET", "http://example.com/foo/download/"+id+".png", nil),
+			},
+			expected{
+				code:        http.StatusOK,
+				contentType: "application/octet-stream",
 			},
 		},
 	}
@@ -76,10 +101,18 @@ func Test_captchaHandler_ServeHTTP(t *testing.T) {
 			}
 			h.ServeHTTP(tt.args.w, tt.args.r)
 			rr := tt.args.w.(*httptest.ResponseRecorder)
-			t.Log(rr.Code)
+			if tt.exp.code != rr.Code {
+				t.Errorf("Bad code. Got %d, expected %d",
+					rr.Code, tt.exp.code)
+			}
 			if rr.Code == http.StatusOK {
 				fsave := fmt.Sprintf("blah%d.png", i)
 				ioutil.WriteFile(fsave, rr.Body.Bytes(), os.ModePerm)
+			}
+			ctype := rr.Header().Get("Content-Type")
+			if ctype != tt.exp.contentType {
+				t.Errorf("Bad Content-Type. Got %s, expected %s",
+					ctype, tt.exp.contentType)
 			}
 		})
 	}
